@@ -9,9 +9,12 @@ async function main() {
   const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
 
   // Dynamically set the canvas size to match the window size
+  let canvasWidth = canvas.clientWidth;
+  let canvasHeight = canvas.clientHeight;
+
   const resize = () => {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    canvasWidth = canvas.width = canvas.clientWidth;
+    canvasHeight = canvas.height = canvas.clientHeight;
   };
   window.addEventListener('resize', () => {
     resize();
@@ -27,7 +30,34 @@ async function main() {
 
   const shell = await load_obj('project/shell.obj');
 
-  console.log(shell);
+  const uniformBuffer = device.createBuffer({
+    size: 64, // 4x4 matrix
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const mvpMatrix = mat4.create();
+
+  const updateMvpMatrix = (t: number) => {
+    const projection = mat4.create();
+    mat4.perspective(Math.PI / 4, canvasWidth / canvasHeight, 0.1, 100, projection);
+
+    const eye = vec3.fromValues(Math.sin(t / 1000) * 0.25, 0.25, Math.cos(t / 1000) * 0.25);
+    const center = vec3.fromValues(0, 0, 0);
+    const up = vec3.fromValues(0, 1, 0);
+    const view = mat4.create();
+    mat4.lookAt(eye, center, up, view);
+
+    const model = mat4.create();
+    mat4.identity(model);
+
+    mat4.multiply(projection, view, mvpMatrix);
+    mat4.multiply(mvpMatrix, model, mvpMatrix);
+
+    device.queue.writeBuffer(uniformBuffer, 0, mvpMatrix as Float32Array);
+
+    requestAnimationFrame(updateMvpMatrix);
+  };
+  updateMvpMatrix(0);
 
   const positionBuffer = device.createBuffer({
     size: shell.position.byteLength,
@@ -53,11 +83,17 @@ async function main() {
                 @location(1) normal: vec3f
             };
 
+            struct Uniforms {
+              mvpMatrix: mat4x4f,
+            };
+
+            @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
             @vertex
             fn vertex_main(input: VertexInput) -> VertexOutput {
                 var output: VertexOutput;
-                output.position = vec4f(input.position.xy*8, 0.01, 1.0);
-                output.normal = input.normal;
+                output.position = uniforms.mvpMatrix * vec4f(input.position, 1.0);
+                output.normal = (uniforms.mvpMatrix * vec4f(input.normal, 0.0)).xyz;
                 return output;
             }
 
@@ -109,6 +145,23 @@ async function main() {
     primitive: {
       topology: 'triangle-list',
     },
+    depthStencil: {
+      format: 'depth24plus',
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+    },
+  });
+
+  const uniformBindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
+      },
+    ],
   });
 
   const render = () => {
@@ -116,7 +169,15 @@ async function main() {
       label: 'Render Encoder',
     });
     const canvasTexture = context.getCurrentTexture();
-    const renderPassDescriptor: GPURenderPassDescriptor = {
+
+    const depthTexture = device.createTexture({
+      size: [canvas.width, canvas.height, 1],
+      format: 'depth24plus',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    const depthTextureView = depthTexture.createView();
+
+    const passEncoder = encoder.beginRenderPass({
       colorAttachments: [
         {
           view: canvasTexture.createView(),
@@ -125,15 +186,19 @@ async function main() {
           storeOp: 'store',
         },
       ],
-    };
-
-    const renderPass = encoder.beginRenderPass(renderPassDescriptor);
-    renderPass.setPipeline(pipeline);
-    renderPass.setVertexBuffer(0, positionBuffer);
-    renderPass.setVertexBuffer(1, normalBuffer);
-    renderPass.draw(shell.position.length / 3);
-
-    renderPass.end();
+      depthStencilAttachment: {
+        view: depthTextureView,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+        depthClearValue: 1.0,
+      },
+    });
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, uniformBindGroup);
+    passEncoder.setVertexBuffer(0, positionBuffer);
+    passEncoder.setVertexBuffer(1, normalBuffer);
+    passEncoder.draw(shell.position.length / 3);
+    passEncoder.end();
     device.queue.submit([encoder.finish()]);
 
     requestAnimationFrame(render);
