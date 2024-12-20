@@ -1,4 +1,5 @@
 export interface StaticModel {
+  name: string;
   position: Float32Array;
   normal: Float32Array;
   uv: Float32Array;
