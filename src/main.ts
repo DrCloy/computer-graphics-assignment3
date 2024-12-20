@@ -1,4 +1,5 @@
 import "./style.css";
+import { main } from "./model";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
@@ -7,3 +8,5 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div id="message">Message Area</div>
   </div>
 `;
+
+main();
