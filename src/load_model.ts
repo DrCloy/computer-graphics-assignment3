@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import { StaticModel } from './types';
 
@@ -15,15 +15,17 @@ export async function load_obj(model_url: string, texture_url?: string): Promise
 
   const obj = root.children[0] as THREE.Mesh;
 
+  const name = obj.name;
   const position = (obj.geometry as THREE.BufferGeometry).attributes.position.array;
   const normal = (obj.geometry as THREE.BufferGeometry).attributes.normal.array;
   const uv = (obj.geometry as THREE.BufferGeometry).attributes.uv.array;
   // Get texture from URL if it exists, otherwise use a blank canvas
   const texture = texture_url
     ? new THREE.TextureLoader().load(texture_url)
-    : new THREE.CanvasTexture(new HTMLCanvasElement());
+    : new THREE.CanvasTexture(document.createElement('canvas'));
 
   return {
+    name,
     position: new Float32Array(position),
     normal: new Float32Array(normal),
     uv: new Float32Array(uv),
@@ -31,34 +33,39 @@ export async function load_obj(model_url: string, texture_url?: string): Promise
   };
 }
 
-export async function load_gltf(url: string): Promise<StaticModel> {
+export async function load_gltf(url: string): Promise<StaticModel[]> {
   const loader = new GLTFLoader();
-  const root: THREE.Group = await new Promise((resolve, reject) => {
-    loader.load(
-      url,
-      (gltf) => {
-        resolve(gltf.scene);
-      },
-      undefined,
-      reject
-    );
+  const root: GLTF = await new Promise((resolve, reject) => {
+    loader.load(url, resolve, undefined, reject);
   });
   if (!root) {
     throw new Error('Failed to load GLTF');
   }
 
-  const obj = root.children[0] as THREE.Mesh;
+  console.log(root);
 
-  const position = (obj.geometry as THREE.BufferGeometry).attributes.position.array;
-  const normal = (obj.geometry as THREE.BufferGeometry).attributes.normal.array;
-  const uv = (obj.geometry as THREE.BufferGeometry).attributes.uv.array;
-  // Get texture from material if it exists, otherwise use a blank canvas
-  const texture = (obj.material as THREE.MeshBasicMaterial).map || new THREE.CanvasTexture(new HTMLCanvasElement());
+  const gltf = root.scene as THREE.Group;
 
-  return {
-    position: new Float32Array(position),
-    normal: new Float32Array(normal),
-    uv: new Float32Array(uv),
-    texture: texture.image as HTMLCanvasElement,
-  };
+  const meshes = [] as THREE.Mesh[];
+  gltf.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      meshes.push(child);
+    }
+  });
+
+  return meshes.map((mesh) => {
+    const name = mesh.name;
+    const position = (mesh.geometry as THREE.BufferGeometry).attributes.position.array;
+    const normal = (mesh.geometry as THREE.BufferGeometry).attributes.normal.array;
+    const uv = (mesh.geometry as THREE.BufferGeometry).attributes.uv.array;
+    const texture = (mesh.material as THREE.MeshStandardMaterial).map?.image as HTMLCanvasElement;
+
+    return {
+      name,
+      position: new Float32Array(position),
+      normal: new Float32Array(normal),
+      uv: new Float32Array(uv),
+      texture,
+    };
+  });
 }
