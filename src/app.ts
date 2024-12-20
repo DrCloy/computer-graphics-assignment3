@@ -7,6 +7,17 @@ async function main() {
   if (!device) throw new Error('WebGPU not supported');
 
   const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
+
+  // Dynamically set the canvas size to match the window size
+  const resize = () => {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+  };
+  window.addEventListener('resize', () => {
+    resize();
+  });
+  resize();
+
   const context = canvas.getContext('webgpu')!;
   const prefferedFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
@@ -45,7 +56,7 @@ async function main() {
             @vertex
             fn vertex_main(input: VertexInput) -> VertexOutput {
                 var output: VertexOutput;
-                output.position = vec4f(input.position, 1.0);
+                output.position = vec4f(input.position.xy*8, 0.01, 1.0);
                 output.normal = input.normal;
                 return output;
             }
