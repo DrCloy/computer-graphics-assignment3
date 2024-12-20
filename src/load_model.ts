@@ -42,8 +42,6 @@ export async function load_gltf(url: string): Promise<StaticModel[]> {
     throw new Error('Failed to load GLTF');
   }
 
-  console.log(root);
-
   const gltf = root.scene as THREE.Group;
 
   const meshes = [] as THREE.Mesh[];
