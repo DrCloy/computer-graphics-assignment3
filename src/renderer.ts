@@ -205,6 +205,10 @@ export class Renderer {
 
   public setCamera(camera: Camera) {
     this.camera = camera;
+
+    if (this.device) {
+      this.handleResize();
+    }
   }
 
   public render() {
