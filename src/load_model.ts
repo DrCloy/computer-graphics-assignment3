@@ -51,8 +51,6 @@ export async function load_gltf(url: string): Promise<StaticModel[]> {
     }
   });
 
-  console.log(meshes);
-
   return meshes.map((mesh) => {
     const name = mesh.name;
     const position = (mesh.geometry as THREE.BufferGeometry).attributes.position.array;
