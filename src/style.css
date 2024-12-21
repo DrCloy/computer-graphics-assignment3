@@ -7,7 +7,8 @@ body {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', sans-serif;
-  background-color: #f0f0f0;
+  background-color: #000000;
+  color: #ffffff;
   overflow: hidden;
 }
 
@@ -17,6 +18,21 @@ body {
   flex-direction: column;
 }
 
+#header {
+  display: flex;
+  justify-content: center;
+  margin: 1dvh;
+  height: 20%;
+  text-align: center;
+}
+
 #canvas {
   flex: 1;
+  height: 70%;
+}
+
+#message {
+  height: 10%;
+  margin: 0.5dvh;
+  text-align: center;
 }
