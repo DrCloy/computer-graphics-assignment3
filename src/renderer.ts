@@ -21,6 +21,7 @@ export class Renderer {
       direction: new Float32Array([0, 0, 0]),
       fov: Math.PI / 3,
       aspectRatio: 1,
+      up: new Float32Array([0, 1, 0]),
     };
   }
 
@@ -251,7 +252,12 @@ export class Renderer {
       this.camera.direction[2]
     );
     const view = mat4.create();
-    mat4.lookAt(cameraLocation, cameraDirection, vec3.fromValues(0, 1, 0), view);
+    mat4.lookAt(
+      cameraLocation,
+      cameraDirection,
+      vec3.fromValues(this.camera.up[0], this.camera.up[1], this.camera.up[2]),
+      view
+    );
 
     const vpMatrix = mat4.create();
     mat4.multiply(projection, view, vpMatrix);

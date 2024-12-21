@@ -18,4 +18,5 @@ export interface Camera {
   direction: Float32Array;
   fov: number;
   aspectRatio: number;
+  up: Float32Array;
 }
