@@ -2,39 +2,69 @@ import { vec2, vec3, vec4, mat4 } from 'wgpu-matrix';
 import { load_gltf, load_obj } from './load_model';
 import { RenderableModel } from './types';
 import { Renderer } from './renderer';
+import { Controller } from './controller';
 
 async function main() {
   const renderer = new Renderer();
   await renderer.initialize();
 
   const shell = await load_obj('project/shell.obj');
-  const shellRenderableModel: RenderableModel = {
-    staticModel: shell,
+
+  const tank = await load_gltf('project/tank.glb');
+
+  const body = tank[0];
+  const turret = tank[1];
+  const barrel = tank[2];
+
+  const bodyRenderableModel: RenderableModel = {
+    staticModel: body,
     location: vec3.create(0, 0, 0),
     rotation: vec3.create(0, 0, 0),
-    scale: vec3.create(1, 1, 1),
+    scale: vec3.create(0.5, 0.5, 0.5),
   };
 
-  const shellRenderModel2: RenderableModel = {
-    staticModel: shell,
-    location: vec3.create(0.5, 0, 0),
-    rotation: vec3.create(0, Math.PI, 0),
-    scale: vec3.create(1, 2, 1),
+  const turretRenderableModel: RenderableModel = {
+    staticModel: turret,
+    location: vec3.create(0, 0, 0),
+    rotation: vec3.create(0, 0, 0),
+    scale: vec3.create(0.5, 0.5, 0.5),
   };
 
-  renderer.addModel(shellRenderableModel);
-  renderer.addModel(shellRenderModel2);
+  const barrelRenderableModel: RenderableModel = {
+    staticModel: barrel,
+    location: vec3.create(0, 0, 0),
+    rotation: vec3.create(0, 0, 0),
+    scale: vec3.create(0.5, 0.5, 0.5),
+  };
 
-  const render = (time: number) => {
-    const x = Math.sin(time / 1000) * 0.1;
-    const y = Math.cos(time / 1000) * 0.1;
+  renderer.addModel(bodyRenderableModel);
+  renderer.addModel(turretRenderableModel);
+  renderer.addModel(barrelRenderableModel);
 
-    shellRenderableModel.location = vec3.create(x, y, 0);
+  const controller = new Controller(renderer, shell, bodyRenderableModel, barrelRenderableModel, turretRenderableModel);
+  controller.initialize();
 
-    renderer.render();
+  const camera = {
+    location: new Float32Array([0, 0, 2]),
+    direction: new Float32Array([0, 0, 0]),
+    fov: Math.PI / 3,
+    aspectRatio: 1,
+    up: new Float32Array([0, 1, 0]),
+  };
+  renderer.setCamera(camera);
+
+  if (controller.isPaused) {
+    const render = () => {
+      renderer.render();
+    };
+    render();
+  } else {
+    const render = (time: number) => {
+      renderer.render();
+      requestAnimationFrame(render);
+    };
     requestAnimationFrame(render);
-  };
-  requestAnimationFrame(render);
+  }
 }
 
 export { main };
