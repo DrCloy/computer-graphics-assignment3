@@ -140,9 +140,13 @@ export class Controller {
   private handlePressSpace() {
     const newShellRenderableModel: RenderableModel = {
       staticModel: this.shellModel,
-      location: new Float32Array([0, 0, 0]),
-      rotation: new Float32Array([0, 0, 0]),
-      scale: new Float32Array([1, 1, 1]),
+      location: new Float32Array([
+        this.tankBarrelModel.location[0] + 0.25 * Math.cos(this.tankBarrelModel.rotation[1]),
+        0.15 + Math.sin(0.05 + this.tankTurretModel.rotation[2] * 0.3),
+        this.tankBarrelModel.location[2] - 0.25 * Math.sin(this.tankBarrelModel.rotation[1]),
+      ]),
+      rotation: new Float32Array([0, this.tankBarrelModel.rotation[1], 0.15 + this.tankTurretModel.rotation[2]]),
+      scale: new Float32Array([0.8, 0.8, 0.8]),
     };
 
     this.renderer.addModel(newShellRenderableModel);
