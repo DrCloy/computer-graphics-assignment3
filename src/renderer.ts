@@ -33,9 +33,17 @@ export class Renderer {
     const height = canvas.clientHeight;
 
     canvas.width = width * window.devicePixelRatio;
-    canvas.height = height * window.devicePixelRatio;
+    canvas.height = height * window.devicePixelRatio * 0.7;
 
     this.camera.aspectRatio = width / height;
+
+    if (this.device) {
+      this.depthTexture = this.device.createTexture({
+        size: [canvas.width, canvas.height, 1],
+        format: 'depth24plus',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      });
+    }
   }
 
   public async initialize() {
