@@ -5,8 +5,8 @@ export class Controller {
   private renderer: Renderer;
   private shellModel: StaticModel;
   private tankBodyModel: RenderableModel;
-  private tankTurretModel: RenderableModel;
   private tankBarrelModel: RenderableModel;
+  private tankTurretModel: RenderableModel;
   private shellRenderableModels: RenderableModel[] = [];
   private shellRenderedTime: number[] = [];
 
@@ -16,14 +16,14 @@ export class Controller {
     renderer: Renderer,
     shellModel: StaticModel,
     tankBodyModel: RenderableModel,
-    tankTurretModel: RenderableModel,
-    tankBarrelModel: RenderableModel
+    tankBarrelModel: RenderableModel,
+    tankTurretModel: RenderableModel
   ) {
     this.renderer = renderer;
     this.shellModel = shellModel;
     this.tankBodyModel = tankBodyModel;
-    this.tankTurretModel = tankTurretModel;
     this.tankBarrelModel = tankBarrelModel;
+    this.tankTurretModel = tankTurretModel;
   }
 
   private updateMessage(message: string) {
@@ -31,14 +31,30 @@ export class Controller {
     messageElem.innerText = `The Key "${message}" is down.`;
   }
 
+  private calculateBarrelLocation() {
+    const radius = 0.25;
+
+    this.tankBarrelModel.location[0] =
+      this.tankBodyModel.location[0] -
+      radius * (Math.cos(this.tankBodyModel.rotation[1]) - Math.cos(this.tankBarrelModel.rotation[1]));
+    this.tankBarrelModel.location[2] =
+      this.tankBodyModel.location[2] -
+      radius * (Math.sin(this.tankBarrelModel.rotation[1]) - Math.sin(this.tankBodyModel.rotation[1]));
+
+    this.tankTurretModel.location[0] =
+      this.tankBodyModel.location[0] -
+      radius * (Math.cos(this.tankBodyModel.rotation[1]) - Math.cos(this.tankTurretModel.rotation[1]));
+    this.tankTurretModel.location[2] =
+      this.tankBodyModel.location[2] -
+      radius * (Math.sin(this.tankTurretModel.rotation[1]) - Math.sin(this.tankBodyModel.rotation[1]));
+  }
+
   private handlePressUp() {
     const angle = this.tankBodyModel.rotation[1];
     this.tankBodyModel.location[0] += 0.1 * Math.cos(angle);
     this.tankBodyModel.location[2] -= 0.1 * Math.sin(angle);
-    this.tankTurretModel.location[0] += 0.1 * Math.cos(angle);
-    this.tankTurretModel.location[2] -= 0.1 * Math.sin(angle);
-    this.tankBarrelModel.location[0] += 0.1 * Math.cos(angle);
-    this.tankBarrelModel.location[2] -= 0.1 * Math.sin(angle);
+
+    this.calculateBarrelLocation();
 
     this.updateMessage('ArrowUp');
   }
@@ -47,54 +63,78 @@ export class Controller {
     const angle = this.tankBodyModel.rotation[1];
     this.tankBodyModel.location[0] -= 0.1 * Math.cos(angle);
     this.tankBodyModel.location[2] += 0.1 * Math.sin(angle);
-    this.tankTurretModel.location[0] -= 0.1 * Math.cos(angle);
-    this.tankTurretModel.location[2] += 0.1 * Math.sin(angle);
-    this.tankBarrelModel.location[0] -= 0.1 * Math.cos(angle);
-    this.tankBarrelModel.location[2] += 0.1 * Math.sin(angle);
+
+    this.calculateBarrelLocation();
 
     this.updateMessage('ArrowDown');
   }
 
   private handlePressLeft() {
+    const prevBarrelRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
+
     this.tankBodyModel.rotation[1] += 0.1;
-    this.tankTurretModel.rotation[1] += 0.1;
-    this.tankBarrelModel.rotation[1] += 0.1;
+
+    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
+    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
+
+    this.calculateBarrelLocation();
 
     this.updateMessage('ArrowLeft');
   }
 
   private handlePressRight() {
+    const prevBarrelRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
+
     this.tankBodyModel.rotation[1] -= 0.1;
-    this.tankTurretModel.rotation[1] -= 0.1;
-    this.tankBarrelModel.rotation[1] -= 0.1;
+
+    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
+    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
+
+    this.calculateBarrelLocation();
 
     this.updateMessage('ArrowRight');
   }
 
-  private handlePressW() {
-    this.tankBarrelModel.rotation[2] += 0.1;
-
-    this.updateMessage('W');
-  }
-
-  private handlePressS() {
-    this.tankBarrelModel.rotation[2] -= 0.1;
-
-    this.updateMessage('S');
-  }
-
   private handlePressA() {
-    this.tankTurretModel.rotation[1] += 0.1;
-    this.tankBarrelModel.rotation[1] += 0.1;
+    const prevRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
+    const nextRotation = prevRotation + 0.05;
+
+    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
+    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
+
+    this.calculateBarrelLocation();
 
     this.updateMessage('A');
   }
 
   private handlePressD() {
-    this.tankTurretModel.rotation[1] -= 0.1;
-    this.tankBarrelModel.rotation[1] -= 0.1;
+    const prevRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
+    const nextRotation = prevRotation - 0.05;
+
+    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
+    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
+
+    this.calculateBarrelLocation();
 
     this.updateMessage('D');
+  }
+
+  private handlePressW() {
+    this.tankTurretModel.rotation[2] += 0.05;
+    if (this.tankTurretModel.rotation[2] > 0.25) {
+      this.tankTurretModel.rotation[2] = 0.25;
+    }
+
+    this.updateMessage('W');
+  }
+
+  private handlePressS() {
+    this.tankTurretModel.rotation[2] -= 0.05;
+    if (this.tankTurretModel.rotation[2] < -0.25) {
+      this.tankTurretModel.rotation[2] = -0.25;
+    }
+
+    this.updateMessage('S');
   }
 
   private handlePressSpace() {
@@ -136,13 +176,25 @@ export class Controller {
         case 'w':
           this.handlePressW();
           break;
+        case 'ㅈ':
+          this.handlePressW();
+          break;
         case 's':
+          this.handlePressS();
+          break;
+        case 'ㄴ':
           this.handlePressS();
           break;
         case 'a':
           this.handlePressA();
           break;
+        case 'ㅁ':
+          this.handlePressA();
+          break;
         case 'd':
+          this.handlePressD();
+          break;
+        case 'ㅇ':
           this.handlePressD();
           break;
         case ' ':
@@ -150,6 +202,11 @@ export class Controller {
           break;
         case 'p':
           this.handlePressP();
+          break;
+        case 'ㅔ':
+          this.handlePressP();
+          break;
+        default:
           break;
       }
     });
