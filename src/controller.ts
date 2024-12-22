@@ -1,5 +1,6 @@
 import { Renderer } from './renderer';
 import { RenderableModel, StaticModel } from './types';
+import { mat4, vec3 } from 'wgpu-matrix';
 
 export class Controller {
   private renderer: Renderer;
@@ -8,7 +9,7 @@ export class Controller {
   private tankBarrelModel: RenderableModel;
   private tankTurretModel: RenderableModel;
   private shellRenderableModels: RenderableModel[] = [];
-  private shellRenderedTime: number[] = [];
+  private shellVelocityVectors: Float32Array[] = [];
 
   public isPaused = false;
 
@@ -31,40 +32,69 @@ export class Controller {
     messageElem.innerText = `The Key "${message}" is down.`;
   }
 
-  private calculateBarrelLocation() {
+  private calculateDirectionVector(roll: number, pitch: number, yaw: number): Float32Array {
+    const directionVector = vec3.fromValues(1, 0, 0);
+
+    const rotationMatrix = mat4.create();
+    mat4.identity(rotationMatrix);
+    mat4.rotateX(rotationMatrix, roll, rotationMatrix);
+    mat4.rotateY(rotationMatrix, pitch, rotationMatrix);
+    mat4.rotateZ(rotationMatrix, yaw, rotationMatrix);
+
+    vec3.transformMat4(directionVector, rotationMatrix, directionVector);
+
+    return directionVector;
+  }
+
+  private adjustBarrelLocation(tankBodyDirectionVector: Float32Array) {
+    const tankBarrelDirectionVector = this.calculateDirectionVector(
+      this.tankBarrelModel.rotation[0],
+      this.tankBarrelModel.rotation[1],
+      this.tankBarrelModel.rotation[2]
+    );
+
+    const tankBarrelCenterDirectionVector = vec3.subtract(tankBarrelDirectionVector, tankBodyDirectionVector);
+
     const radius = 0.25;
 
-    this.tankBarrelModel.location[0] =
-      this.tankBodyModel.location[0] -
-      radius * (Math.cos(this.tankBodyModel.rotation[1]) - Math.cos(this.tankBarrelModel.rotation[1]));
-    this.tankBarrelModel.location[2] =
-      this.tankBodyModel.location[2] -
-      radius * (Math.sin(this.tankBarrelModel.rotation[1]) - Math.sin(this.tankBodyModel.rotation[1]));
-
-    this.tankTurretModel.location[0] =
-      this.tankBodyModel.location[0] -
-      radius * (Math.cos(this.tankBodyModel.rotation[1]) - Math.cos(this.tankTurretModel.rotation[1]));
-    this.tankTurretModel.location[2] =
-      this.tankBodyModel.location[2] -
-      radius * (Math.sin(this.tankTurretModel.rotation[1]) - Math.sin(this.tankBodyModel.rotation[1]));
+    vec3.add(
+      this.tankBodyModel.location,
+      vec3.scale(tankBarrelCenterDirectionVector, radius),
+      this.tankBarrelModel.location
+    );
+    vec3.add(
+      this.tankBodyModel.location,
+      vec3.scale(tankBarrelCenterDirectionVector, radius),
+      this.tankTurretModel.location
+    );
   }
 
   private handlePressUp() {
-    const angle = this.tankBodyModel.rotation[1];
-    this.tankBodyModel.location[0] += 0.1 * Math.cos(angle);
-    this.tankBodyModel.location[2] -= 0.1 * Math.sin(angle);
+    const tankBodyDirectionVector = this.calculateDirectionVector(
+      this.tankBodyModel.rotation[0],
+      this.tankBodyModel.rotation[1],
+      this.tankBodyModel.rotation[2]
+    );
+    vec3.normalize(tankBodyDirectionVector, tankBodyDirectionVector);
 
-    this.calculateBarrelLocation();
+    vec3.add(this.tankBodyModel.location, vec3.scale(tankBodyDirectionVector, 0.1), this.tankBodyModel.location);
+
+    this.adjustBarrelLocation(tankBodyDirectionVector);
 
     this.updateMessage('ArrowUp');
   }
 
   private handlePressDown() {
-    const angle = this.tankBodyModel.rotation[1];
-    this.tankBodyModel.location[0] -= 0.1 * Math.cos(angle);
-    this.tankBodyModel.location[2] += 0.1 * Math.sin(angle);
+    const tankDirectionVector = this.calculateDirectionVector(
+      this.tankBodyModel.rotation[0],
+      this.tankBodyModel.rotation[1],
+      this.tankBodyModel.rotation[2]
+    );
+    vec3.normalize(tankDirectionVector, tankDirectionVector);
 
-    this.calculateBarrelLocation();
+    vec3.subtract(this.tankBodyModel.location, vec3.scale(tankDirectionVector, 0.1), this.tankBodyModel.location);
+
+    this.adjustBarrelLocation(tankDirectionVector);
 
     this.updateMessage('ArrowDown');
   }
@@ -77,7 +107,14 @@ export class Controller {
     this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
     this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
 
-    this.calculateBarrelLocation();
+    const tankBodyDirectionVector = this.calculateDirectionVector(
+      this.tankBodyModel.rotation[0],
+      this.tankBodyModel.rotation[1],
+      this.tankBodyModel.rotation[2]
+    );
+    vec3.normalize(tankBodyDirectionVector, tankBodyDirectionVector);
+
+    this.adjustBarrelLocation(tankBodyDirectionVector);
 
     this.updateMessage('ArrowLeft');
   }
@@ -90,31 +127,50 @@ export class Controller {
     this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
     this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation;
 
-    this.calculateBarrelLocation();
+    const tankBodyDirectionVector = this.calculateDirectionVector(
+      this.tankBodyModel.rotation[0],
+      this.tankBodyModel.rotation[1],
+      this.tankBodyModel.rotation[2]
+    );
+    vec3.normalize(tankBodyDirectionVector, tankBodyDirectionVector);
+
+    this.adjustBarrelLocation(tankBodyDirectionVector);
 
     this.updateMessage('ArrowRight');
   }
 
   private handlePressA() {
-    const prevRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
-    const nextRotation = prevRotation + 0.05;
+    const prevBarrelRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
 
-    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
-    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
+    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation + 0.05;
+    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation + 0.05;
 
-    this.calculateBarrelLocation();
+    const tankBodyDirectionVector = this.calculateDirectionVector(
+      this.tankBodyModel.rotation[0],
+      this.tankBodyModel.rotation[1],
+      this.tankBodyModel.rotation[2]
+    );
+    vec3.normalize(tankBodyDirectionVector, tankBodyDirectionVector);
+
+    this.adjustBarrelLocation(tankBodyDirectionVector);
 
     this.updateMessage('A');
   }
 
   private handlePressD() {
-    const prevRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
-    const nextRotation = prevRotation - 0.05;
+    const prevBarrelRotation = this.tankBarrelModel.rotation[1] - this.tankBodyModel.rotation[1];
 
-    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
-    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + nextRotation;
+    this.tankBarrelModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation - 0.05;
+    this.tankTurretModel.rotation[1] = this.tankBodyModel.rotation[1] + prevBarrelRotation - 0.05;
 
-    this.calculateBarrelLocation();
+    const tankBodyDirectionVector = this.calculateDirectionVector(
+      this.tankBodyModel.rotation[0],
+      this.tankBodyModel.rotation[1],
+      this.tankBodyModel.rotation[2]
+    );
+    vec3.normalize(tankBodyDirectionVector, tankBodyDirectionVector);
+
+    this.adjustBarrelLocation(tankBodyDirectionVector);
 
     this.updateMessage('D');
   }
@@ -138,20 +194,31 @@ export class Controller {
   }
 
   private handlePressSpace() {
+    const newShellLocation = vec3.clone(this.tankBarrelModel.location);
+    const tankBarrelDirectionVector = this.calculateDirectionVector(
+      this.tankBarrelModel.rotation[0],
+      this.tankBarrelModel.rotation[1],
+      this.tankTurretModel.rotation[2]
+    );
+    vec3.scale(tankBarrelDirectionVector, 0.25, tankBarrelDirectionVector);
+    vec3.add(newShellLocation, tankBarrelDirectionVector, newShellLocation);
+    newShellLocation[1] += 0.2;
+
+    const newShellDirectionVector = vec3.clone(tankBarrelDirectionVector);
+
+    const newShellVelocityVector = vec3.scale(newShellDirectionVector, 0.15);
+
     const newShellRenderableModel: RenderableModel = {
       staticModel: this.shellModel,
-      location: new Float32Array([
-        this.tankBarrelModel.location[0] + 0.25 * Math.cos(this.tankBarrelModel.rotation[1]),
-        0.15 + Math.sin(0.05 + this.tankTurretModel.rotation[2] * 0.3),
-        this.tankBarrelModel.location[2] - 0.25 * Math.sin(this.tankBarrelModel.rotation[1]),
-      ]),
-      rotation: new Float32Array([0, this.tankBarrelModel.rotation[1], 0.15 + this.tankTurretModel.rotation[2]]),
-      scale: new Float32Array([0.8, 0.8, 0.8]),
+      location: newShellLocation,
+      rotation: vec3.create(0, this.tankBarrelModel.rotation[1], this.tankTurretModel.rotation[2]),
+      scale: vec3.create(0.8, 0.8, 0.8),
     };
 
-    this.renderer.addModel(newShellRenderableModel);
     this.shellRenderableModels.push(newShellRenderableModel);
-    this.shellRenderedTime.push(Date.now());
+    this.shellVelocityVectors.push(newShellVelocityVector);
+
+    this.renderer.addModel(newShellRenderableModel);
 
     this.updateMessage(' ');
   }
@@ -214,5 +281,31 @@ export class Controller {
           break;
       }
     });
+  }
+
+  public update() {
+    for (let i = 0; i < this.shellRenderableModels.length; ++i) {
+      const shellRenderableModel = this.shellRenderableModels[i];
+      const shellVelocityVector = this.shellVelocityVectors[i];
+
+      if (shellRenderableModel.location[1] < -0.5) {
+        this.renderer.removeModel(shellRenderableModel);
+        this.shellRenderableModels.splice(i, 1);
+        this.shellVelocityVectors.splice(i, 1);
+        --i;
+        continue;
+      } else {
+        const elapsedTime = 1;
+        const prevLocation = vec3.clone(shellRenderableModel.location);
+
+        vec3.add(
+          shellRenderableModel.location,
+          vec3.scale(shellVelocityVector, elapsedTime),
+          shellRenderableModel.location
+        );
+
+        vec3.add(shellVelocityVector, vec3.fromValues(0, -0.00098, 0), shellVelocityVector);
+      }
+    }
   }
 }
