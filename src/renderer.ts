@@ -204,6 +204,17 @@ export class Renderer {
     this.normalBuffers.push(normalBuffer);
   }
 
+  public removeModel(model: RenderableModel) {
+    const index = this.models.indexOf(model);
+    if (index === -1) return;
+
+    this.models.splice(index, 1);
+    this.uniformBuffers.splice(index, 1);
+    this.uniformBindGroups.splice(index, 1);
+    this.positionBuffers.splice(index, 1);
+    this.normalBuffers.splice(index, 1);
+  }
+
   public setCamera(camera: Camera) {
     this.camera = camera;
 
