@@ -53,18 +53,14 @@ async function main() {
   };
   renderer.setCamera(camera);
 
-  if (controller.isPaused) {
-    const render = () => {
-      renderer.render();
-    };
-    render();
-  } else {
-    const render = (time: number) => {
-      renderer.render();
-      requestAnimationFrame(render);
-    };
+  const render = (time: number) => {
+    if (!controller.isPaused) {
+      controller.update();
+    }
+    renderer.render();
     requestAnimationFrame(render);
-  }
+  };
+  requestAnimationFrame(render);
 }
 
 export { main };
